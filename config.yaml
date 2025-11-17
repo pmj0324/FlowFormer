@@ -4,7 +4,7 @@
 data:
   train_path: "./data/22644.h5"
   val_split: 0.1  # 10% for validation
-  num_workers: 4
+  num_workers: 0  # Set to 0 to avoid memory issues
   
 # Model settings
 model:

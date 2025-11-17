@@ -122,7 +122,7 @@ def train_epoch(model, dataloader, optimizer, scheduler, config, device, epoch):
         condition = batch['condition'].to(device)
         
         # Forward pass
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)  # set_to_none=True saves memory
         loss = flow_matching_loss(
             model=model,
             dom_positions=dom_positions,
@@ -142,6 +142,13 @@ def train_epoch(model, dataloader, optimizer, scheduler, config, device, epoch):
             )
         
         optimizer.step()
+        
+        # Explicitly delete to free memory
+        del dom_positions, dom_signals, condition
+        
+        # Clear GPU cache periodically
+        if batch_idx % 100 == 0:
+            torch.cuda.empty_cache()
         
         # Step scheduler if per-iteration
         if scheduler is not None and config.get('step_per_iter', False):
@@ -189,6 +196,9 @@ def validate(model, dataloader, device, epoch, config):
         
         total_loss += loss.item()
         pbar.set_postfix({'val_loss': f'{total_loss / (pbar.n + 1):.4f}'})
+        
+        # Free memory
+        del dom_positions, dom_signals, condition, loss
     
     avg_loss = total_loss / num_batches
     
@@ -426,7 +436,8 @@ def main():
         shuffle=True,
         num_workers=config['data']['num_workers'],
         collate_fn=collate_fn,
-        pin_memory=True,
+        pin_memory=False,  # Disable to avoid memory issues
+        persistent_workers=False,
     )
     
     val_loader = DataLoader(
@@ -435,7 +446,8 @@ def main():
         shuffle=False,
         num_workers=config['data']['num_workers'],
         collate_fn=collate_fn,
-        pin_memory=True,
+        pin_memory=False,  # Disable to avoid memory issues
+        persistent_workers=False,
     )
     
     # Create model

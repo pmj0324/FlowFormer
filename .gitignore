@@ -1,0 +1,50 @@
+# Data files
+data/
+*.h5
+
+# Generated outputs
+checkpoints/
+statistics/
+visualizations/
+training_visualizations/
+*.log
+scaling_stats.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*_old.py
+model_old.py
+
+# WandB
+wandb/
+

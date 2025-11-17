@@ -1,0 +1,86 @@
+# FlowFormer Training Configuration
+
+# Data settings
+data:
+  train_path: "./data/22644.h5"
+  val_split: 0.1  # 10% for validation
+  num_workers: 4
+  
+# Model settings
+model:
+  type: "EquivariantCNF"  # Options: "RelativeGeometryCNF", "EquivariantCNF"
+  signal_dim: 2  # (time, charge)
+  cond_dim: 8    # scaled: (E_scaled, sin_θ, cos_θ, sin_φ, cos_φ, vx, vy, vz)
+  
+  # Scaling statistics (from h5_compute_scaling_stats.py)
+  scaling_stats:
+    pos_x_max: 576.37
+    pos_y_max: 521.08
+    pos_z_max: 524.56
+    time_99percentile: 117.00
+    time_mean: 14.3358
+    time_std: 24.6273
+    charge_mean: 7.5155
+    charge_std: 0.8190
+    energy_log10_mean: 7.0168
+    energy_log10_std: 0.5761
+    vertex_x_max: 576.37
+    vertex_y_max: 521.08
+    vertex_z_max: 524.56
+  
+  # # RelativeGeometryCNF specific
+  # time_embed_dim: 64
+  # pos_embed_dim: 32
+  # sig_embed_dim: 32
+  # cond_embed_dim: 64
+  # model_dim: 256
+  # num_layers: 4
+  # num_heads: 4
+  # rbf_dim: 16
+  # ff_mult: 4
+  # dropout: 0.1
+  
+  # EquivariantCNF specific
+  time_embed_dim: 64
+  sig_embed_dim: 64
+  cond_embed_dim: 64
+  scalar_dim: 32  # Reduced from 128 to save memory
+  num_layers: 4
+
+# Training settings
+training:
+  batch_size: 1  # Must be 1 for 5160 DOMs
+  accumulation_steps: 8  # Simulate batch_size=8
+  num_epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.00001
+  grad_clip: 1.0
+  
+  # Scheduler
+  scheduler:
+    type: "cosine"  # Options: "cosine", "step", "none"
+    warmup_epochs: 5
+    min_lr: 0.000001
+  
+  # Checkpoint
+  save_dir: "./checkpoints"
+  save_interval: 5  # Save every N epochs
+  resume: null  # Path to checkpoint to resume from
+
+# Logging
+logging:
+  use_wandb: false
+  wandb_project: "icecube-flowformer"
+  wandb_entity: null
+  log_interval: 100  # Log every N steps
+  
+# Visualization
+visualization:
+  enabled: true
+  save_dir: "./training_visualizations"
+  num_samples: 4  # Number of events to generate per epoch
+  
+# Device
+device: "cuda"  # Options: "cuda", "cpu"
+seed: 42
+

@@ -62,6 +62,7 @@ def create_model(config):
             cond_embed_dim=config['model']['cond_embed_dim'],
             scalar_dim=config['model']['scalar_dim'],
             num_layers=config['model']['num_layers'],
+            max_distance=config['model'].get('max_distance', 150.0),
             scaling_stats=scaling_stats,
         )
     else:

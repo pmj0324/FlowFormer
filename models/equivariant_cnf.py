@@ -14,20 +14,22 @@ from .base import DataScaler, MLP
 
 class EGNNLayer(nn.Module):
     """
-    EGNN-style SE(3)-equivariant layer.
+    EGNN-style SE(3)-equivariant layer with distance-based sparsity.
 
     Input:
         s: (B, N, D_s)  scalar features per DOM
         x: (B, N, 3)    vector features per DOM (coords or learned)
         mask: (B, N) or None
+        max_distance: maximum distance for attention (default 150m)
 
     Output:
         s_out: (B, N, D_s)
         x_out: (B, N, 3)
     """
     
-    def __init__(self, scalar_dim, edge_dim=32):
+    def __init__(self, scalar_dim, edge_dim=32, max_distance=150.0):
         super().__init__()
+        self.max_distance = max_distance
 
         # Edge MLP: concat(s_i, s_j, dist_ij^2) -> edge feature e_ij
         self.edge_mlp = MLP(2 * scalar_dim + 1, edge_dim, edge_dim)
@@ -45,22 +47,30 @@ class EGNNLayer(nn.Module):
         B, N, D_s = s.shape
 
         # Pairwise geometric quantities
-        diff = x.unsqueeze(2) - x.unsqueeze(1)
-        dist2 = torch.sum(diff ** 2, dim=-1, keepdim=True)
-
+        diff = x.unsqueeze(2) - x.unsqueeze(1)  # (B, N, N, 3)
+        dist2 = torch.sum(diff ** 2, dim=-1, keepdim=True)  # (B, N, N, 1)
+        dist = torch.sqrt(dist2.squeeze(-1))  # (B, N, N)
+        
+        # Distance-based sparsity mask: only attend to DOMs within max_distance
+        distance_mask = dist <= self.max_distance  # (B, N, N)
+        
         # Expand scalar features to pairwise
-        s_i = s.unsqueeze(2).expand(-1, -1, N, -1)
-        s_j = s.unsqueeze(1).expand(-1, N, -1, -1)
+        s_i = s.unsqueeze(2).expand(-1, -1, N, -1)  # (B, N, N, D_s)
+        s_j = s.unsqueeze(1).expand(-1, N, -1, -1)  # (B, N, N, D_s)
 
         # Edge input: concat(s_i, s_j, dist^2)
-        edge_input = torch.cat([s_i, s_j, dist2], dim=-1)
+        edge_input = torch.cat([s_i, s_j, dist2], dim=-1)  # (B, N, N, 2*D_s+1)
 
         # Edge feature e_ij
-        edge_feat = self.edge_mlp(edge_input)
+        edge_feat = self.edge_mlp(edge_input)  # (B, N, N, edge_dim)
 
         # Attention weights α_ij from edge features
-        att_logits = self.att_mlp(edge_feat).squeeze(-1)
+        att_logits = self.att_mlp(edge_feat).squeeze(-1)  # (B, N, N)
+        
+        # Apply distance mask
+        att_logits = att_logits.masked_fill(~distance_mask, float("-inf"))
 
+        # Apply optional node mask
         if mask is not None:
             # Build pairwise mask
             m_i = mask.unsqueeze(2)
@@ -109,6 +119,7 @@ class EquivariantCNF(nn.Module):
         cond_embed_dim=64,
         scalar_dim=128,
         num_layers=8,
+        max_distance=150.0,  # Maximum attention distance in meters
         scaling_stats=None,
     ):
         super().__init__()
@@ -134,9 +145,9 @@ class EquivariantCNF(nn.Module):
         # Project to scalar_dim (D_s)
         self.scalar_proj = nn.Linear(in_scalar_dim, scalar_dim)
 
-        # Stack EGNN layers
+        # Stack EGNN layers with distance-based sparsity
         self.layers = nn.ModuleList([
-            EGNNLayer(scalar_dim=scalar_dim, edge_dim=32)
+            EGNNLayer(scalar_dim=scalar_dim, edge_dim=32, max_distance=max_distance)
             for _ in range(num_layers)
         ])
 

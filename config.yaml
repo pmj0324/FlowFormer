@@ -44,8 +44,9 @@ model:
   time_embed_dim: 64
   sig_embed_dim: 64
   cond_embed_dim: 64
-  scalar_dim: 32  # Reduced from 128 to save memory
-  num_layers: 4
+  scalar_dim: 16  # Further reduced to save memory
+  num_layers: 2  # Reduce layers to save memory
+  max_distance: 150.0  # Only attend to DOMs within 150m
 
 # Training settings
 training:
